@@ -111,3 +111,6 @@ venv.bak/
 *.txt
 *.xml
 *.yml
+
+./data/*
+./idea/*
