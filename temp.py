@@ -10,70 +10,81 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-#其中x0,x1 : 是测试数据,y0,y1为对应的标签数据
-# make fake data
-n_data = torch.ones(100, 2)
-x0 = torch.normal(2*n_data, 1)      # class0 x data (tensor), shape=(100, 2)
-y0 = torch.zeros(100)               # class0 y data (tensor), shape=(100, 1)
-x1 = torch.normal(-2*n_data, 1)     # class1 x data (tensor), shape=(100, 2)
-y1 = torch.ones(100)                # class1 y data (tensor), shape=(100, 1)
-x = torch.cat((x0, x1), 0).type(torch.FloatTensor)  # shape (200, 2) FloatTensor = 32-bit floating
-y = torch.cat((y0, y1), ).type(torch.LongTensor)    # shape (200,) LongTensor = 64-bit integer
+# torch.manual_seed(1)    # reproducible
 
-x, y = Variable(x), Variable(y)
+# fake data
+x = torch.unsqueeze(torch.linspace(-1, 1, 100), dim=1)  # x data (tensor), shape=(100, 1)
+y = x.pow(2) + 0.2*torch.rand(x.size())  # noisy y data (tensor), shape=(100, 1)
 
-#plt.scatter(x.data.numpy()[:, 0], x.data.numpy()[:, 1], c=y.data.numpy(), s=100, lw=0, cmap='RdYlGn')
-#plt.show()
+# The code below is deprecated in Pytorch 0.4. Now, autograd directly supports tensors
+# x, y = Variable(x, requires_grad=False), Variable(y, requires_grad=False)
 
 
+def save():
+    # save net1
+    net1 = torch.nn.Sequential(
+        torch.nn.Linear(1, 10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10, 1)
+    )
+    optimizer = torch.optim.SGD(net1.parameters(), lr=0.5)
+    loss_func = torch.nn.MSELoss()
 
-#build Neural Network 
+    for t in range(100):
+        prediction = net1(x)
+        loss = loss_func(prediction, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-class Net(torch.nn.Module): #继承torch的module
-    def __init__(self,n_feature,n_hidden,n_output):
-        super(Net,self).__init__() #继承__init__工能
-        #定义每层用什么样的形式
-        self.hidden = torch.nn.Linear(n_feature,n_hidden) #隐藏层线性输出
-        self.predict = torch.nn.Linear(n_hidden,n_output) #输出层线性输出
-        
-    def forward(self,x): #这同时也是Module中的forward功能
-        #正向传播输入值，网络分析出输出值
-        x = F.relu(self.hidden(x)) #Activation Function(隐藏层的线性值)
-        x = self.predict(x) #输出值
-        return x        
-    
-net = Net(n_feature=2,n_hidden=10,n_output=2)
+    # plot result
+    plt.figure(1, figsize=(10, 3))
+    plt.subplot(131)
+    plt.title('Net1')
+    plt.scatter(x.data.numpy(), y.data.numpy())
+    plt.plot(x.data.numpy(), prediction.data.numpy(), 'r-', lw=5)
 
-print(net) #print net struct
+    # 2 ways to save the net
+    torch.save(net1, 'net.pkl')  # save entire net
+    torch.save(net1.state_dict(), 'net_params.pkl')   # save only the parameters
 
-#train Neural Network
-optimizer = torch.optim.SGD(net.parameters(),lr=0.01) #input net parameters,such as learn rate
-#loss_func = torch.nn.MSELoss() #预测值和真实值的误差计算公式(均方差)
-loss_func = torch.nn.CrossEntropyLoss() 
-      
-plt.ion()
 
-for t in range(100):
+def restore_net():
+    # restore entire net1 to net2
+    net2 = torch.load('net.pkl')
+    prediction = net2(x)
 
-    out = net(x) #给net训练数据x,输出预测值
-    loss = loss_func(out,y) #计算两者之间的误差
-    
-    optimizer.zero_grad() #清空上一步的残余更新值
-    loss.backward() #误差反向传播，计算参数更新值
-    optimizer.step() #将参数更新值加到net的parameters上
+    # plot result
+    plt.subplot(132)
+    plt.title('Net2')
+    plt.scatter(x.data.numpy(), y.data.numpy())
+    plt.plot(x.data.numpy(), prediction.data.numpy(), 'r-', lw=5)
 
-    # 接着上面来
-    if t % 2 == 0:
-         # plot and show learning process
-        plt.cla()
-        prediction = torch.max(out, 1)[1]
-        pred_y = prediction.data.numpy()
-        target_y = y.data.numpy()
-        plt.scatter(x.data.numpy()[:, 0], x.data.numpy()[:, 1], c=pred_y, s=100, lw=0, cmap='RdYlGn')
-        accuracy = float((pred_y == target_y).astype(int).sum()) / float(target_y.size)
-        plt.text(1.5, -4, 'Accuracy=%.2f' % accuracy, fontdict={'size': 20, 'color':  'red'})
-        plt.pause(0.5)
-        
 
-plt.ioff()
-plt.show()
+def restore_params():
+    # restore only the parameters in net1 to net3
+    net3 = torch.nn.Sequential(
+        torch.nn.Linear(1, 10),
+        torch.nn.ReLU(),
+        torch.nn.Linear(10, 1)
+    )
+
+    # copy net1's parameters into net3
+    net3.load_state_dict(torch.load('net_params.pkl'))
+    prediction = net3(x)
+
+    # plot result
+    plt.subplot(133)
+    plt.title('Net3')
+    plt.scatter(x.data.numpy(), y.data.numpy())
+    plt.plot(x.data.numpy(), prediction.data.numpy(), 'r-', lw=5)
+    plt.show()
+
+# save net1
+save()
+
+# restore entire net (may slow)
+restore_net()
+
+# restore only the net parameters
+restore_params()
