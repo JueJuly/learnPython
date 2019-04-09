@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 
 torch.manual_seed(1)    # reproducible
 
-BATCH_SIZE = 5 #批训练的数据个数
+BATCH_SIZE = 8 #批训练的数据个数
 
 x = torch.linspace(1,10,10) #x data (torch data)
 y = torch.linspace(10,1,10) #y data (torch data)
